@@ -127,7 +127,9 @@ void BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node>& nod
 
 template <typename T, typename Compare, typename Node>
 void BinarySearchTree<T, Compare, Node>::print() {
-    return;
+    auto printNode = [](const std::shared_ptr<Node>& node) { std::cout << node->value << " "; };
+    inorderTraversal(printNode);
+    std::cout << std::endl;
 }
 
 template <typename T, typename Compare, typename Node>

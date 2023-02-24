@@ -29,70 +29,9 @@ template <typename T, typename Compare = std::less<T>, typename Node = TreapNode
 class Treap : public BinarySearchTree<T, Compare, Node> {
     using BinarySearchTree<T, Compare, Node>::root;
     using BinarySearchTree<T, Compare, Node>::compare;
+    using BinarySearchTree<T, Compare, Node>::rotate;
 
    public:
-    void rotate(std::shared_ptr<Node>& node, int direction) {
-        // direction: 0 - left, 1 - right
-        assert(direction == 0 || direction == 1);
-        auto child = node->children[direction ^ 1];
-        node->children[direction ^ 1] = child->children[direction];
-        child->children[direction] = node;
-        node->update();
-        child->update();
-        node = child;
-    }
-
-    void insert(std::shared_ptr<Node>& node, const T& value) {
-        if (!node) {
-            node = std::make_shared<Node>(value);
-            return;
-        }
-
-        if (!compare(value, node->value) && !compare(node->value, value)) {
-            node->repeat++;
-            node->update();
-            return;
-        }
-
-        int direction = compare(node->value, value);
-        insert(node->children[direction], value);
-        if (node->priority > node->children[direction]->priority)
-            rotate(node, direction ^ 1);
-
-        node->update();
-    }
-
-    void remove(std::shared_ptr<Node>& node, const T& value) {
-        if (!node)
-            return;
-
-        if (!compare(value, node->value) && !compare(node->value, value)) {
-            if (node->repeat > 1) {
-                node->repeat--;
-                node->update();
-                return;
-            }
-
-            if (!node->left && !node->right) {
-                node = nullptr;
-                return;
-            }
-
-            if (!node->left || !node->right) {
-                node = node->left ? node->left : node->right;
-                return;
-            }
-
-            int direction = node->right->priority > node->left->priority;
-            rotate(node, direction);
-            remove(node->children[direction], value);
-        } else {
-            int direction = compare(node->value, value);
-            remove(node->children[direction], value);
-        }
-        node->update();
-    }
-
    public:
     Treap() = default;
     Treap(const Treap&) = delete;
@@ -101,8 +40,99 @@ class Treap : public BinarySearchTree<T, Compare, Node> {
     Treap& operator=(Treap&&) = default;
     ~Treap() = default;
 
-    void insert(const T& value) { insert(this->root, value); }
-    void remove(const T& value) { remove(this->root, value); }
+    void insert(const T& value);
+    void remove(const T& value);
 };
+
+template <typename T, typename Compare, typename Node>
+void Treap<T, Compare, Node>::insert(const T& value) {
+    if (root == nullptr) {
+        root = std::make_shared<Node>(value);
+        return;
+    }
+
+    std::shared_ptr<Node> current = root;
+    while (true) {
+        if (!compare(value, current->value) && !compare(current->value, value)) {
+            current->repeat++;
+            current->update();
+            break;
+        }
+        int direction = compare(current->value, value);
+        if (!current->children[direction]) {
+            current->children[direction] = std::make_shared<Node>(value);
+            current->children[direction]->parent = current;
+            current = current->children[direction];
+            break;
+        }
+        current = current->children[direction];
+    }
+
+    while (!isRoot(current)) {
+        int direction = getDirection(current);
+        if (current->priority < current->parent.lock()->priority) {
+            rotate(current->parent.lock(), direction ^ 1);
+        } else {
+            current->update();
+            current = current->parent.lock();
+        }
+    }
+    current->update();
+}
+
+template <typename T, typename Compare, typename Node>
+void Treap<T, Compare, Node>::remove(const T& value) {
+    if (root == nullptr)
+        return;
+
+    std::shared_ptr<Node> current = root;
+    while (true) {
+        if (!compare(value, current->value) && !compare(current->value, value)) {
+            if (current->repeat > 1) {
+                current->repeat--;
+                break;
+            }
+
+            if (!current->left && !current->right) {
+                if (isRoot(current)) {
+                    root = nullptr;
+                    current = nullptr;
+                    break;
+                }
+                current->parent.lock()->children[getDirection(current)] = nullptr;
+                current = current->parent.lock();
+                break;
+            }
+
+            if (!current->left || !current->right) {
+                if (isRoot(current)) {
+                    root = current->left ? current->left : current->right;
+                    root->parent.reset();
+                    current = nullptr;
+                    break;
+                }
+                int direction = getDirection(current);
+                current->parent.lock()->children[direction] =
+                    current->left ? current->left : current->right;
+                current->parent.lock()->children[direction]->parent = current->parent;
+                current = current->parent.lock();
+                break;
+            }
+
+            int direction = current->right->priority > current->left->priority;
+            rotate(current, direction);
+            continue;
+        }
+        int direction = compare(current->value, value);
+        if (!current->children[direction])
+            break;
+        current = current->children[direction];
+    }
+
+    while (current != nullptr) {
+        current->update();
+        current = current->parent.lock();
+    }
+}
 
 #endif  // __TREAP_HPP__
