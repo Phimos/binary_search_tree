@@ -1,5 +1,5 @@
-#ifndef __TREAP_HPP__
-#define __TREAP_HPP__
+#ifndef TREAP_HPP
+#define TREAP_HPP
 
 #include <chrono>
 
@@ -40,8 +40,8 @@ class Treap : public BinarySearchTree<T, Compare, Node> {
     Treap& operator=(Treap&&) = default;
     ~Treap() = default;
 
-    void insert(const T& value);
-    void remove(const T& value);
+    void insert(const T& value) override;
+    void remove(const T& value) override;
 };
 
 template <typename T, typename Compare, typename Node>
@@ -135,4 +135,4 @@ void Treap<T, Compare, Node>::remove(const T& value) {
     }
 }
 
-#endif  // __TREAP_HPP__
+#endif  // TREAP_HPP
