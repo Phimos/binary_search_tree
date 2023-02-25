@@ -13,7 +13,7 @@ struct TreapNode {
     std::shared_ptr<TreapNode<T>> children[2];
     std::shared_ptr<TreapNode<T>>& left = children[0];
     std::shared_ptr<TreapNode<T>>& right = children[1];
-    size_t count, repeat;
+    size_t size, count, repeat;
     std::uint32_t priority;
 
     TreapNode() = default;
@@ -22,7 +22,10 @@ struct TreapNode {
 
     ~TreapNode() = default;
 
-    inline void update() { count = repeat + (left ? left->count : 0) + (right ? right->count : 0); }
+    inline void update() {
+        count = 1 + (left ? left->count : 0) + (right ? right->count : 0);
+        size = repeat + (left ? left->size : 0) + (right ? right->size : 0);
+    }
 };
 
 template <typename T, typename Compare = std::less<T>, typename Node = TreapNode<T>>

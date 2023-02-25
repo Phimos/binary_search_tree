@@ -17,7 +17,7 @@ struct BinaryNode {
     std::shared_ptr<BinaryNode<T>> children[2];
     std::shared_ptr<BinaryNode<T>>& left = children[0];
     std::shared_ptr<BinaryNode<T>>& right = children[1];
-    size_t count, repeat;
+    size_t size, count, repeat;
 
     BinaryNode() = default;
     BinaryNode(const T& value, size_t repeat = 1)
@@ -25,7 +25,10 @@ struct BinaryNode {
 
     ~BinaryNode() = default;
 
-    inline void update() { count = repeat + (left ? left->count : 0) + (right ? right->count : 0); }
+    inline void update() {
+        count = 1 + (left ? left->count : 0) + (right ? right->count : 0);
+        size = repeat + (left ? left->size : 0) + (right ? right->size : 0);
+    }
 };
 
 template <typename T, typename Compare = std::less<T>, typename Node = BinaryNode<T>>
@@ -63,14 +66,6 @@ class BinarySearchTree {
     virtual T ceil(const T& value);
     virtual std::vector<T> nsmallest(size_t n);
     virtual std::vector<T> nlargest(size_t n);
-
-    virtual void preorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback);
-    virtual void inorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback);
-    virtual void postorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback);
-
-    virtual void preorderTraversal(std::function<void(T&)> callback);
-    virtual void inorderTraversal(std::function<void(T&)> callback);
-    virtual void postorderTraversal(std::function<void(T&)> callback);
 };
 
 template <typename T, typename Compare, typename Node>
@@ -127,8 +122,8 @@ void BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node>& nod
 
 template <typename T, typename Compare, typename Node>
 void BinarySearchTree<T, Compare, Node>::print() {
-    auto printNode = [](const std::shared_ptr<Node>& node) { std::cout << node->value << " "; };
-    inorderTraversal(printNode);
+    std::function<void(const std::shared_ptr<Node>&)> printNode = [](const std::shared_ptr<Node>& node) { std::cout << node->value << " "; };
+    inorderTraversal(root, printNode);
     std::cout << std::endl;
 }
 
@@ -155,7 +150,7 @@ void BinarySearchTree<T, Compare, Node>::insert(const T& value) {
             ++(current->repeat);
             break;
         }
-        size_t dir = compare(value, current->value);
+        size_t dir = compare(current->value, value);
         if (current->children[dir] == nullptr) {
             current->children[dir] = std::make_shared<Node>(value);
             current->children[dir]->parent = current;
@@ -227,7 +222,7 @@ void BinarySearchTree<T, Compare, Node>::remove(const T& value) {
             }
             break;
         }
-        current = current->children[compare(value, current->value)];
+        current = current->children[compare(current->value, value)];
     }
     while (current) {
         current->update();
@@ -358,128 +353,6 @@ std::vector<T> BinarySearchTree<T, Compare, Node>::nlargest(size_t n) {
         current = current->left;
     }
     return result;
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::preorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-    stack.push(current);
-
-    while (!stack.empty()) {
-        current = stack.top();
-        stack.pop();
-        callback(current);
-        if (current->right)
-            stack.push(current->right);
-        if (current->left)
-            stack.push(current->left);
-    }
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::inorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-
-    while (current || !stack.empty()) {
-        for (; current; current = current->left)
-            stack.push(current);
-        current = stack.top();
-        stack.pop();
-        callback(current);
-        current = current->right;
-    }
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::postorderTraversal(std::function<void(const std::shared_ptr<Node>&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-    std::shared_ptr<Node> lastVisited = nullptr;
-
-    while (current || !stack.empty()) {
-        for (; current; current = current->left)
-            stack.push(current);
-        current = stack.top();
-        if (!current->right || current->right == lastVisited) {
-            callback(current);
-            lastVisited = current;
-            stack.pop();
-            current = nullptr;
-        } else
-            current = current->right;
-    }
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::preorderTraversal(std::function<void(T&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-    stack.push(current);
-
-    while (!stack.empty()) {
-        current = stack.top();
-        stack.pop();
-        callback(current->value);
-        if (current->right)
-            stack.push(current->right);
-        if (current->left)
-            stack.push(current->left);
-    }
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::inorderTraversal(std::function<void(T&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-
-    while (current || !stack.empty()) {
-        for (; current; current = current->left)
-            stack.push(current);
-        current = stack.top();
-        stack.pop();
-        callback(current->value);
-        current = current->right;
-    }
-}
-
-template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::postorderTraversal(std::function<void(T&)> callback) {
-    if (this->empty())
-        return;
-
-    std::shared_ptr<Node> current = root;
-    std::stack<std::shared_ptr<Node>> stack;
-    std::shared_ptr<Node> lastVisited = nullptr;
-
-    while (current || !stack.empty()) {
-        for (; current; current = current->left)
-            stack.push(current);
-        current = stack.top();
-        if (!current->right || current->right == lastVisited) {
-            callback(current->value);
-            lastVisited = current;
-            stack.pop();
-            current = nullptr;
-        } else
-            current = current->right;
-    }
 }
 
 #endif  // BINART_SEARCH_TREE_HPP

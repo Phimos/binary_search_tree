@@ -133,4 +133,65 @@ std::shared_ptr<Node> getNextNode(const std::shared_ptr<Node>& node) noexcept {
     return isLeftChild(current) ? current->parent.lock() : nullptr;
 }
 
+template <typename Node>
+void preorderTraversal(const std::shared_ptr<Node>& root, std::function<void(const std::shared_ptr<Node>&)> callback) {
+    if (root == nullptr)
+        return;
+
+    std::shared_ptr<Node> current = root;
+    std::stack<std::shared_ptr<Node>> stack;
+    stack.push(current);
+
+    while (!stack.empty()) {
+        current = stack.top();
+        stack.pop();
+        callback(current);
+        if (current->right)
+            stack.push(current->right);
+        if (current->left)
+            stack.push(current->left);
+    }
+}
+
+template <typename Node>
+void inorderTraversal(const std::shared_ptr<Node>& root, std::function<void(const std::shared_ptr<Node>&)> callback) {
+    if (root == nullptr)
+        return;
+
+    std::shared_ptr<Node> current = root;
+    std::stack<std::shared_ptr<Node>> stack;
+
+    while (current || !stack.empty()) {
+        for (; current; current = current->left)
+            stack.push(current);
+        current = stack.top();
+        stack.pop();
+        callback(current);
+        current = current->right;
+    }
+}
+
+template <typename Node>
+void postorderTraversal(const std::shared_ptr<Node>& root, std::function<void(const std::shared_ptr<Node>&)> callback) {
+    if (root == nullptr)
+        return;
+
+    std::shared_ptr<Node> current = root;
+    std::stack<std::shared_ptr<Node>> stack;
+    std::shared_ptr<Node> lastVisited = nullptr;
+
+    while (current || !stack.empty()) {
+        for (; current; current = current->left)
+            stack.push(current);
+        current = stack.top();
+        if (!current->right || current->right == lastVisited) {
+            callback(current);
+            lastVisited = current;
+            stack.pop();
+            current = nullptr;
+        } else
+            current = current->right;
+    }
+}
+
 #endif  // NODE_HPP
