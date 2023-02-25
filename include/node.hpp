@@ -96,7 +96,7 @@ Direction getDirection(const std::shared_ptr<Node>& node) noexcept {
 }
 
 template <typename Node>
-std::shared_ptr<Node> getPrevNode(const std::shared_ptr<Node>& node) noexcept {
+std::shared_ptr<Node> getPredecessor(const std::shared_ptr<Node>& node) noexcept {
     if (node->left != nullptr) {
         std::shared_ptr<Node> current = node->left;
         while (current->right)
@@ -115,7 +115,7 @@ std::shared_ptr<Node> getPrevNode(const std::shared_ptr<Node>& node) noexcept {
 }
 
 template <typename Node>
-std::shared_ptr<Node> getNextNode(const std::shared_ptr<Node>& node) noexcept {
+std::shared_ptr<Node> getSuccessor(const std::shared_ptr<Node>& node) noexcept {
     if (node->right != nullptr) {
         std::shared_ptr<Node> current = node->right;
         while (current->left)
