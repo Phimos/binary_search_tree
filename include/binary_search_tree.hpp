@@ -37,9 +37,9 @@ class BinarySearchTree {
     std::shared_ptr<Node> root;
     Compare compare = Compare();
 
-    void rotateLeft(const std::shared_ptr<Node>& node);
-    void rotateRight(const std::shared_ptr<Node>& node);
-    void rotate(const std::shared_ptr<Node>& node, size_t direction);
+    std::shared_ptr<Node> rotateLeft(const std::shared_ptr<Node>& node);
+    std::shared_ptr<Node> rotateRight(const std::shared_ptr<Node>& node);
+    std::shared_ptr<Node> rotate(const std::shared_ptr<Node>& node, size_t direction);
 
    public:
     BinarySearchTree() = default;
@@ -69,7 +69,7 @@ class BinarySearchTree {
 };
 
 template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::rotateLeft(const std::shared_ptr<Node>& node) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateLeft(const std::shared_ptr<Node>& node) {
     assert(node != nullptr && node->right != nullptr);
 
     auto right = node->right;
@@ -89,10 +89,12 @@ void BinarySearchTree<T, Compare, Node>::rotateLeft(const std::shared_ptr<Node>&
 
     node->update();
     right->update();
+
+    return right;
 }
 
 template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::rotateRight(const std::shared_ptr<Node>& node) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateRight(const std::shared_ptr<Node>& node) {
     assert(node != nullptr && node->left != nullptr);
 
     auto left = node->left;
@@ -112,12 +114,14 @@ void BinarySearchTree<T, Compare, Node>::rotateRight(const std::shared_ptr<Node>
 
     node->update();
     left->update();
+
+    return left;
 }
 
 template <typename T, typename Compare, typename Node>
-void BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node>& node, size_t direction) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node>& node, size_t direction) {
     assert(direction == Direction::LEFT || direction == Direction::RIGHT);
-    direction == Direction::LEFT ? rotateLeft(node) : rotateRight(node);
+    return direction == Direction::LEFT ? rotateLeft(node) : rotateRight(node);
 }
 
 template <typename T, typename Compare, typename Node>
@@ -197,9 +201,7 @@ void BinarySearchTree<T, Compare, Node>::remove(const T& value) {
                 current->left->parent = current->parent;
                 current = current->left;
             } else {
-                std::shared_ptr<Node> successor = current->right;
-                while (successor->left)
-                    successor = successor->left;
+                std::shared_ptr<Node> successor = getSuccessor(current);
 
                 if (isRightChild(successor)) {
                     successor->left = current->left;
