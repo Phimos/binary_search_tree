@@ -202,10 +202,11 @@ void BinarySearchTree<T, Compare, Node>::remove(const T& value) {
                 current = current->left;
             } else {
                 std::shared_ptr<Node> successor = getSuccessor(current);
-
+                std::shared_ptr<Node> replacement;
                 if (isRightChild(successor)) {
                     successor->left = current->left;
                     current->left->parent = successor;
+                    replacement = successor;
                 } else {
                     successor->parent.lock()->left = successor->right;
                     if (successor->right)
@@ -214,13 +215,14 @@ void BinarySearchTree<T, Compare, Node>::remove(const T& value) {
                     successor->right = current->right;
                     current->left->parent = successor;
                     current->right->parent = successor;
+                    replacement = successor->parent.lock();
                 }
                 if (isRoot(current))
                     root = successor;
                 else
                     current->parent.lock()->children[isRightChild(current)] = successor;
                 successor->parent = current->parent;
-                current = successor;
+                current = replacement;
             }
             break;
         }
