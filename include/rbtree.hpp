@@ -111,7 +111,7 @@ void RBTree<T, Compare, Node>::insert(const T& value) {
                 return;
             }
         } else {
-            if (compare(parent->value, grandparent->value) ^ compare(value, parent->value)) {
+            if (compare(parent->value, grandparent->value) != compare(value, parent->value)) {
                 rotate(parent, compare(value, parent->value));
                 rotate(grandparent, compare(parent->value, grandparent->value));
                 std::swap(node->color, grandparent->color);
