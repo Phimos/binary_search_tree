@@ -2,6 +2,7 @@
 #define TREAP_HPP
 
 #include <chrono>
+#include <tuple>
 
 #include "binary_search_tree.hpp"
 
@@ -136,6 +137,142 @@ void Treap<T, Compare, Node>::remove(const T& value) {
         current->update();
         current = current->parent.lock();
     }
+}
+
+template <typename T, typename Compare, typename Node>
+class NonRotatingTreap : BinarySearchTree<T, Compare, Node> {
+    using BinarySearchTree<T, Compare, Node>::root;
+    using BinarySearchTree<T, Compare, Node>::compare;
+
+   protected:
+    std::shared_ptr<Node> merge(const std::shared_ptr<Node>& left,
+                                const std::shared_ptr<Node>& right);
+    std::shared_ptr<Node> mergeTriple(const std::shared_ptr<Node>& left,
+                                      const std::shared_ptr<Node>& middle,
+                                      const std::shared_ptr<Node>& right);
+    std::tuple<std::shared_ptr<Node>, std::shared_ptr<Node>, std::shared_ptr<Node>>
+    splitByValue(const std::shared_ptr<Node>& current, const T& value);
+    std::tuple<std::shared_ptr<Node>, std::shared_ptr<Node>, std::shared_ptr<Node>>
+    splitByRank(const std::shared_ptr<Node>& current, size_t rank);
+
+   public:
+    NonRotatingTreap() = default;
+    NonRotatingTreap(const NonRotatingTreap&) = delete;
+    NonRotatingTreap(NonRotatingTreap&&) = default;
+    NonRotatingTreap& operator=(const NonRotatingTreap&) = delete;
+    NonRotatingTreap& operator=(NonRotatingTreap&&) = default;
+    ~NonRotatingTreap() = default;
+
+    void insert(const T& value) override;
+    void remove(const T& value) override;
+};
+
+template <typename T, typename Compare, typename Node>
+std::shared_ptr<Node> NonRotatingTreap<T, Compare, Node>::merge(
+    const std::shared_ptr<Node>& left,
+    const std::shared_ptr<Node>& right) {
+    if (left == nullptr || right == nullptr)
+        return left ? left : right;
+
+    if (left->priority < right->priority) {
+        left->right = merge(left->right, right);
+        left->right->parent = left;
+        left->update();
+        return left;
+    } else {
+        right->left = merge(left, right->left);
+        right->left->parent = right;
+        right->update();
+        return right;
+    }
+}
+
+template <typename T, typename Compare, typename Node>
+std::shared_ptr<Node> NonRotatingTreap<T, Compare, Node>::mergeTriple(
+    const std::shared_ptr<Node>& left,
+    const std::shared_ptr<Node>& middle,
+    const std::shared_ptr<Node>& right) {
+    return merge(merge(left, middle), right);
+}
+
+template <typename T, typename Compare, typename Node>
+std::tuple<std::shared_ptr<Node>, std::shared_ptr<Node>, std::shared_ptr<Node>>
+NonRotatingTreap<T, Compare, Node>::splitByValue(const std::shared_ptr<Node>& current,
+                                                 const T& value) {
+    if (current == nullptr)
+        return std::make_tuple(nullptr, nullptr, nullptr);
+    if (compare(current->value, value)) {
+        auto [left, middle, right] = splitByValue(current->right, value);
+        current->right = left;
+        current->right->parent = current;
+        current->update();
+        return std::make_tuple(current, middle, right);
+    } else if (compare(value, current->value)) {
+        auto [left, middle, right] = splitByValue(current->left, value);
+        current->left = right;
+        current->left->parent = current;
+        current->update();
+        return std::make_tuple(left, middle, current);
+    } else {
+        return std::make_tuple(current->left, current, current->right);
+    }
+}
+
+template <typename T, typename Compare, typename Node>
+std::tuple<std::shared_ptr<Node>, std::shared_ptr<Node>, std::shared_ptr<Node>>
+NonRotatingTreap<T, Compare, Node>::splitByRank(const std::shared_ptr<Node>& current,
+                                                size_t rank) {
+    if (current == nullptr)
+        return std::make_tuple(nullptr, nullptr, nullptr);
+    size_t leftSize = current->left ? current->left->size : 0;
+    if (leftSize >= rank) {
+        auto [left, middle, right] = splitByRank(current->left, rank);
+        current->left = right;
+        current->left->parent = current;
+        current->update();
+        return std::make_tuple(left, middle, current);
+    } else if (leftSize + current->repeat < rank) {
+        auto [left, middle, right] = splitByRank(current->right, rank - leftSize - current->repeat);
+        current->right = left;
+        current->right->parent = current;
+        current->update();
+        return std::make_tuple(current, middle, right);
+    } else {
+        return std::make_tuple(current->left, current, current->right);
+    }
+}
+
+template <typename T, typename Compare, typename Node>
+void NonRotatingTreap<T, Compare, Node>::insert(const T& value) {
+    if (root == nullptr) {
+        root = std::make_shared<Node>(value);
+        return;
+    }
+
+    auto [left, middle, right] = splitByValue(root, value);
+    if (middle == nullptr) {
+        middle = std::make_shared<Node>(value);
+    } else {
+        middle->repeat++;
+    }
+    root = mergeTriple(left, middle, right);
+}
+
+template <typename T, typename Compare, typename Node>
+void NonRotatingTreap<T, Compare, Node>::remove(const T& value) {
+    auto [left, middle, right] = splitByValue(root, value);
+    if (middle == nullptr) {
+        root = merge(left, right);
+        return;
+    }
+
+    if (middle->repeat > 1) {
+        middle->repeat--;
+        root = mergeTriple(left, middle, right);
+        return;
+    }
+
+    root = merge(left, right);
 }
 
 #endif  // TREAP_HPP
