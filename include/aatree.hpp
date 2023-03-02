@@ -38,6 +38,9 @@ class AATree : public BinarySearchTree<T, Compare, Node> {
     std::shared_ptr<Node> split(const std::shared_ptr<Node>& node);
     std::shared_ptr<Node> decreaseLevel(const std::shared_ptr<Node>& node);
 
+    std::shared_ptr<Node> insert(std::shared_ptr<Node> node, const T& value);
+    std::shared_ptr<Node> remove(std::shared_ptr<Node> node, const T& value);
+
    public:
     AATree() = default;
     AATree(const AATree&) = delete;
@@ -85,131 +88,78 @@ std::shared_ptr<Node> AATree<T, Compare, Node>::decreaseLevel(const std::shared_
 }
 
 template <typename T, typename Compare, typename Node>
-void AATree<T, Compare, Node>::insert(const T& value) {
-    if (root == nullptr) {
-        root = std::make_shared<Node>(value);
-        return;
+std::shared_ptr<Node> AATree<T, Compare, Node>::insert(std::shared_ptr<Node> node, const T& value) {
+    if (node == nullptr)
+        return std::make_shared<Node>(value);
+    if (compare(value, node->value)) {
+        node->left = insert(node->left, value);
+        if (node->left)
+            node->left->parent = node;
+    } else if (compare(node->value, value)) {
+        node->right = insert(node->right, value);
+        if (node->right)
+            node->right->parent = node;
+    } else {
+        node->repeat++;
     }
 
-    std::shared_ptr<Node> node = root;
-    while (true) {
-        assert(node->parent.lock() != node);
-        if (compare(value, node->value)) {
-            if (node->left == nullptr) {
-                node->left = std::make_shared<Node>(value);
-                node->left->parent = node;
-                node = node->left;
-                break;
-            }
-            node = node->left;
-        } else if (compare(node->value, value)) {
-            if (node->right == nullptr) {
-                node->right = std::make_shared<Node>(value);
+    node->update();
+    node = skew(node);
+    node = split(node);
+    return node;
+}
+
+template <typename T, typename Compare, typename Node>
+std::shared_ptr<Node> AATree<T, Compare, Node>::remove(std::shared_ptr<Node> node, const T& value) {
+    if (node == nullptr)
+        return node;
+    if (compare(value, node->value)) {
+        node->left = remove(node->left, value);
+        if (node->left)
+            node->left->parent = node;
+    } else if (compare(node->value, value)) {
+        node->right = remove(node->right, value);
+        if (node->right)
+            node->right->parent = node;
+    } else {
+        if (node->repeat > 1)
+            node->repeat--;
+        else if (node->left == nullptr && node->right == nullptr)
+            return nullptr;
+        else if (node->left == nullptr || node->right == nullptr)
+            return node->left ? node->left : node->right;
+        else {
+            std::shared_ptr<Node> successor = getSuccessor(node);
+            std::swap(node->value, successor->value);
+            node->right = remove(node->right, value);
+            if (node->right)
                 node->right->parent = node;
-                node = node->right;
-                break;
-            }
-            node = node->right;
-        } else {
-            node->repeat++;
-            node->update();
-            break;
         }
     }
 
-    while (node != nullptr) {
-        node = skew(node);
-        node = split(node);
-        node->update();
-        node = node->parent.lock();
-    }
+    node->update();
+    node = decreaseLevel(node);
+    node = skew(node);
+    node->right = skew(node->right);
+    if (node->right)
+        node->right->right = skew(node->right->right);
+    node = split(node);
+    node->right = split(node->right);
+    return node;
+}
+
+template <typename T, typename Compare, typename Node>
+void AATree<T, Compare, Node>::insert(const T& value) {
+    root = insert(root, value);
+    if (root)
+        root->parent.reset();
 }
 
 template <typename T, typename Compare, typename Node>
 void AATree<T, Compare, Node>::remove(const T& value) {
-    if (root == nullptr)
-        return;
-
-    std::shared_ptr<Node> current = root;
-    while (true) {
-        if (!compare(value, current->value) && !compare(current->value, value)) {
-            if (current->repeat > 1) {
-                --(current->repeat);
-                break;
-            }
-            if (current->left == nullptr && current->right == nullptr) {
-                if (isRoot(current)) {
-                    root = nullptr;
-                    current = nullptr;
-                } else {
-                    current->parent.lock()->children[isRightChild(current)] = nullptr;
-                    current = current->parent.lock();
-                }
-            } else if (current->left == nullptr) {
-                if (isRoot(current))
-                    root = current->right;
-                else
-                    current->parent.lock()->children[isRightChild(current)] = current->right;
-                current->right->parent = current->parent;
-                current = current->right;
-            } else if (current->right == nullptr) {
-                if (isRoot(current))
-                    root = current->left;
-                else
-                    current->parent.lock()->children[isRightChild(current)] = current->left;
-                current->left->parent = current->parent;
-                current = current->left;
-            } else {
-                std::shared_ptr<Node> successor = getSuccessor(current);
-                std::shared_ptr<Node> replacement;
-                if (isRightChild(successor)) {
-                    successor->left = current->left;
-                    current->left->parent = successor;
-                    replacement = successor;
-                } else {
-                    successor->parent.lock()->left = successor->right;
-                    if (successor->right)
-                        successor->right->parent = successor->parent;
-                    successor->left = current->left;
-                    successor->right = current->right;
-                    current->left->parent = successor;
-                    current->right->parent = successor;
-                    replacement = successor->parent.lock();
-                }
-                if (isRoot(current))
-                    root = successor;
-                else
-                    current->parent.lock()->children[isRightChild(current)] = successor;
-                successor->parent = current->parent;
-                successor->level = current->level;
-                current = replacement;
-            }
-            break;
-        }
-        current = current->children[compare(current->value, value)];
-    }
-
-    std::cout << "rebalancing" << std::endl;
-
-    while (current != nullptr) {
-        this->check();
-        assert(current->parent.lock() == nullptr || current->parent.lock()->parent.lock() != current->parent.lock());
-        current = decreaseLevel(current);
-        assert(current->parent.lock() == nullptr || current->parent.lock()->parent.lock() != current->parent.lock());
-        current = skew(current);
-        assert(current->parent.lock() == nullptr || current->parent.lock()->parent.lock() != current->parent.lock());
-        current->right = skew(current->right);
-        assert(current->parent.lock() == nullptr || current->parent.lock()->parent.lock() != current->parent.lock());
-        if (current->right)
-            current->right->right = skew(current->right->right);
-        current = split(current);
-        current->right = split(current->right);
-        current->update();
-        std::cout << "current: " << current->value << std::endl;
-        if (current->parent.lock())
-            std::cout << "current->parent: " << current->parent.lock()->value << std::endl;
-        current = current->parent.lock();
-    }
+    root = remove(root, value);
+    if (root)
+        root->parent.reset();
 }
 
 #endif  // AA_TREE_HPP
