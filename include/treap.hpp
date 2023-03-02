@@ -139,8 +139,8 @@ void Treap<T, Compare, Node>::remove(const T& value) {
     }
 }
 
-template <typename T, typename Compare, typename Node>
-class NonRotatingTreap : BinarySearchTree<T, Compare, Node> {
+template <typename T, typename Compare = std::less<T>, typename Node = TreapNode<T>>
+class NonRotatingTreap : public BinarySearchTree<T, Compare, Node> {
     using BinarySearchTree<T, Compare, Node>::root;
     using BinarySearchTree<T, Compare, Node>::compare;
 
@@ -204,13 +204,15 @@ NonRotatingTreap<T, Compare, Node>::splitByValue(const std::shared_ptr<Node>& cu
     if (compare(current->value, value)) {
         auto [left, middle, right] = splitByValue(current->right, value);
         current->right = left;
-        current->right->parent = current;
+        if (current->right)
+            current->right->parent = current;
         current->update();
         return std::make_tuple(current, middle, right);
     } else if (compare(value, current->value)) {
         auto [left, middle, right] = splitByValue(current->left, value);
         current->left = right;
-        current->left->parent = current;
+        if (current->left)
+            current->left->parent = current;
         current->update();
         return std::make_tuple(left, middle, current);
     } else {
@@ -228,13 +230,15 @@ NonRotatingTreap<T, Compare, Node>::splitByRank(const std::shared_ptr<Node>& cur
     if (leftSize >= rank) {
         auto [left, middle, right] = splitByRank(current->left, rank);
         current->left = right;
-        current->left->parent = current;
+        if (current->left)
+            current->left->parent = current;
         current->update();
         return std::make_tuple(left, middle, current);
     } else if (leftSize + current->repeat < rank) {
         auto [left, middle, right] = splitByRank(current->right, rank - leftSize - current->repeat);
         current->right = left;
-        current->right->parent = current;
+        if (current->right)
+            current->right->parent = current;
         current->update();
         return std::make_tuple(current, middle, right);
     } else {
@@ -248,7 +252,6 @@ void NonRotatingTreap<T, Compare, Node>::insert(const T& value) {
         root = std::make_shared<Node>(value);
         return;
     }
-
     auto [left, middle, right] = splitByValue(root, value);
     if (middle == nullptr) {
         middle = std::make_shared<Node>(value);
@@ -256,6 +259,8 @@ void NonRotatingTreap<T, Compare, Node>::insert(const T& value) {
         middle->repeat++;
     }
     root = mergeTriple(left, middle, right);
+    if (root)
+        root->parent.reset();
 }
 
 template <typename T, typename Compare, typename Node>
@@ -263,16 +268,14 @@ void NonRotatingTreap<T, Compare, Node>::remove(const T& value) {
     auto [left, middle, right] = splitByValue(root, value);
     if (middle == nullptr) {
         root = merge(left, right);
-        return;
-    }
-
-    if (middle->repeat > 1) {
+    } else if (middle->repeat > 1) {
         middle->repeat--;
         root = mergeTriple(left, middle, right);
         return;
-    }
-
-    root = merge(left, right);
+    } else
+        root = merge(left, right);
+    if (root)
+        root->parent.reset();
 }
 
 #endif  // TREAP_HPP
