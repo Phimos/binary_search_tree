@@ -2,6 +2,7 @@
 #define BINART_SEARCH_TREE_HPP
 
 #include <cassert>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <stack>
@@ -37,9 +38,9 @@ class BinarySearchTree {
     std::shared_ptr<Node> root;
     Compare compare = Compare();
 
-    std::shared_ptr<Node> rotateLeft(const std::shared_ptr<Node>& node);
-    std::shared_ptr<Node> rotateRight(const std::shared_ptr<Node>& node);
-    std::shared_ptr<Node> rotate(const std::shared_ptr<Node>& node, size_t direction);
+    std::shared_ptr<Node> rotateLeft(const std::shared_ptr<Node> node);
+    std::shared_ptr<Node> rotateRight(const std::shared_ptr<Node> node);
+    std::shared_ptr<Node> rotate(const std::shared_ptr<Node> node, size_t direction);
 
    public:
     BinarySearchTree() = default;
@@ -54,6 +55,7 @@ class BinarySearchTree {
     virtual void clear() noexcept { root = nullptr; }
     virtual size_t height() noexcept { return root ? getHeight(root) : 0; }
     virtual void print();
+    virtual void check();
 
     virtual bool contains(const T& value);
     virtual void insert(const T& value);
@@ -69,7 +71,7 @@ class BinarySearchTree {
 };
 
 template <typename T, typename Compare, typename Node>
-std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateLeft(const std::shared_ptr<Node>& node) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateLeft(const std::shared_ptr<Node> node) {
     assert(node != nullptr && node->right != nullptr);
 
     auto right = node->right;
@@ -94,7 +96,7 @@ std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateLeft(const std::
 }
 
 template <typename T, typename Compare, typename Node>
-std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateRight(const std::shared_ptr<Node>& node) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateRight(const std::shared_ptr<Node> node) {
     assert(node != nullptr && node->left != nullptr);
 
     auto left = node->left;
@@ -104,10 +106,8 @@ std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateRight(const std:
     left->parent = node->parent;
     if (isRoot(node))
         root = left;
-    else if (isLeftChild(node))
-        node->parent.lock()->left = left;
     else
-        node->parent.lock()->right = left;
+        node->parent.lock()->children[isRightChild(node)] = left;
 
     left->right = node;
     node->parent = left;
@@ -119,7 +119,7 @@ std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotateRight(const std:
 }
 
 template <typename T, typename Compare, typename Node>
-std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node>& node, size_t direction) {
+std::shared_ptr<Node> BinarySearchTree<T, Compare, Node>::rotate(const std::shared_ptr<Node> node, size_t direction) {
     assert(direction == Direction::LEFT || direction == Direction::RIGHT);
     return direction == Direction::LEFT ? rotateLeft(node) : rotateRight(node);
 }
@@ -129,6 +129,29 @@ void BinarySearchTree<T, Compare, Node>::print() {
     std::function<void(const std::shared_ptr<Node>&)> printNode = [](const std::shared_ptr<Node>& node) { std::cout << node->value << " "; };
     inorderTraversal(root, printNode);
     std::cout << std::endl;
+}
+
+template <typename T, typename Compare, typename Node>
+void BinarySearchTree<T, Compare, Node>::check() {
+    // Compare compare = Compare();
+    std::function<void(const std::shared_ptr<Node>&)> checkNode = [&](const std::shared_ptr<Node>& node) {
+        size_t count = 1, size = node->repeat;
+        if (node->left) {
+            assert(compare(node->left->value, node->value));
+            assert(node->left->parent.lock() == node);
+            count += node->left->count;
+            size += node->left->size;
+        }
+        if (node->right) {
+            assert(compare(node->value, node->right->value));
+            assert(node->right->parent.lock() == node);
+            count += node->right->count;
+            size += node->right->size;
+        }
+        assert(count == node->count);
+        assert(size == node->size);
+    };
+    inorderTraversal(root, checkNode);
 }
 
 template <typename T, typename Compare, typename Node>
