@@ -147,5 +147,7 @@ void RBTree<T, Compare, Node>::remove(const T& value) {
             node->update();
         return;
     }
+
+    throw std::runtime_error("Not implemented");
 }
 #endif  // RBTREE_HPP
